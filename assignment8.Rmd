@@ -1,0 +1,102 @@
+---
+title: "Coursera Maschine Learning Assignment"
+author: "by Christoph"
+date: "2 Dezember 2016"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(ggplot2)
+library(gridExtra)
+library(caret)
+```
+
+## Introduction
+
+In this document I will describe how I used data from  "http://groupware.les.inf.puc-rio.br/har"" to build a model for predicting barbell lifts quality based on data measured by accelerometers. The quality is measured in 5 different classes A:E.
+
+Training data: https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv
+
+Testset: https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv
+
+
+```{r}
+basedata <- read.csv("pml-training.csv", na.strings = c(""," ", "NA"), stringsAsFactors=F)
+basedata$classe <- as.factor(basedata$classe)
+```
+
+## Some data exploration
+
+
+Checking for the amount of rows and columns
+```{r echo=TRUE}
+dim(basedata)
+```
+
+Some histogram to check out how classes and users are split:
+```{r echo=TRUE}
+g1 <- ggplot(aes(user_name), data = basedata) + geom_bar(alpha=0.8, fill="lightblue")
+g2 <- ggplot(aes(classe), data = basedata) + geom_bar(alpha=0.8, fill="lightblue")
+grid.arrange(g1, g2, ncol=2)
+```
+
+Checking for "na" columns:
+```{r}
+sapply(basedata, function(y) sum(length(which(is.na(y)))))
+```
+
+Obviously there are many columns with a huge amount of "na". These will be excluded before starting the model evaluation, as they won't bring any value due to the low variance. 
+
+
+```{r}
+basedata <- basedata[ , !colSums(is.na(basedata)) > 19000]
+head(basedata[,1:7])
+basedata <- basedata[ , -c(1:7)]
+```
+
+Additionally the first 7 columns will also be excluded, as the are not related to measurements of the accelerometers.  
+
+## Model selection
+
+1. The remaining dataset was split into a training and a testing set.  
+2. Three different maschine learning algorithms were applied.
+3. Running a prediction against the testing set.
+4. Calculating the accuracy with the predicted values vs. the actual values.  
+
+```{r}
+inTrain <- createDataPartition(y=basedata$classe, p=0.75,list=F)
+training <- basedata[inTrain,]
+testing <- basedata[-inTrain,]
+```
+
+As especially the boosting  and  random forest algorithm ran very long, I show the commented code only and present the result of the accuracy calculation.
+
+```{r}
+# modFit <- train(classe~.,method="rpart", data=training)
+# modFit <- train(classe~.,method="rf", data=training)
+# modFit <- train(classe~.,method="gbm", data=training)
+
+# predValues <- predict(modFit,testing)
+# accur <- sum(predValues == testing$classe) / dim(testing)[1]
+
+# print(paste("Accuracy: ", accur))
+```
+
+The results for the different model were:
+
+*TREE* = **0.49** | *RANDOM FOREST* = **0.99** | *BOOSTING* = **0.96**
+
+Obviously "Random Forest" gives the best results.
+
+
+## Predicting the test data
+
+This code can only be executed on my computer, as I stored the result of the model fit for random forest in an object on my disc.
+```{r message=FALSE}
+testcases <- read.csv("pml-testing.csv", na.strings = c(""," ", "NA"), stringsAsFactors=F)
+load(file="rfModelFit.rfmodel")
+predict(modFit, newdata = testcases)
+
+```
+
